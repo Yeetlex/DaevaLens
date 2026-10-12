@@ -2,7 +2,7 @@ import { invoke, listen, setLang, getLang, fmt, pct, clock, esc, icon, jobColor,
 
 const S = {
   es: {
-    navOverlays: "Overlays", navHistory: "Historial", navTracker: "Rastreador", navSettings: "Ajustes", navAbout: "Acerca de",
+    navOverlays: "Overlays", navHistory: "Historial", navTracker: "Rastreador", navSettings: "Ajustes", navAbout: "Acerca de", quit: "Salir de DaevaLens", quitAsk: "Pulsa otra vez para salir",
     ovTitle: "Overlays", ovLead: "Cada overlay es una ventana independiente encima del juego. Actívalos, ajusta su aspecto y colócalos en modo edición.",
     edit: "Modo edición", editOn: "Salir del modo edición", resetPos: "Recolocar todos", opacity: "Opacidad", scale: "Tamaño",
     w_dps: "DPS", w_dps_d: "Tu DPS y el de tu grupo, con barras por jugador.",
@@ -34,7 +34,7 @@ const S = {
     aTitle: "Acerca de DaevaLens", capture: "Captura", game: "Juego", dataFiles: "Datos", ok: "correcto", missing: "falta", seenGame: "detectado", notSeen: "esperando",
   },
   en: {
-    navOverlays: "Overlays", navHistory: "History", navTracker: "Tracker", navSettings: "Settings", navAbout: "About",
+    navOverlays: "Overlays", navHistory: "History", navTracker: "Tracker", navSettings: "Settings", navAbout: "About", quit: "Quit DaevaLens", quitAsk: "Click again to quit",
     ovTitle: "Overlays", ovLead: "Each overlay is its own window on top of the game. Turn them on, style them, and place them in edit mode.",
     edit: "Edit mode", editOn: "Leave edit mode", resetPos: "Re-stack all", opacity: "Opacity", scale: "Size",
     w_dps: "DPS", w_dps_d: "Your DPS and your group's, with a bar per player.",
@@ -204,7 +204,7 @@ async function pageTracker() {
     const name = main.querySelector("#newName").value.trim();
     if (name) save((s) => s.watches.push({ name, on: main.querySelector("#newOn").value, alert: false, stacks: false })).then(pageTracker);
   };
-  main.querySelector("#preset")?.addEventListener("click", () => save((s) => { s.watches = []; s.watchPresetFor = null; }).then(() => setTimeout(async () => { settings = await invoke("get_settings"); pageTracker(); }, 400)));
+  main.querySelector("#preset")?.addEventListener("click", async () => { settings = await invoke("load_class_preset"); pageTracker(); });
 }
 
 function pageSettings() {
@@ -267,14 +267,21 @@ function banner() {
 }
 function render() {
   document.querySelectorAll("[data-i]").forEach((el) => (el.textContent = L(el.dataset.i)));
-  document.querySelectorAll("nav.side button").forEach((b) => b.classList.toggle("active", b.dataset.page === page));
+  document.querySelectorAll("nav.side button[data-page]").forEach((b) => b.classList.toggle("active", b.dataset.page === page));
   Promise.resolve(({ overlays: pageOverlays, history: pageHistory, tracker: pageTracker, settings: pageSettings, about: pageAbout })[page]())
     .then(() => {
       main.insertAdjacentHTML("afterbegin", banner());
       main.querySelector("#npcap")?.addEventListener("click", () => invoke("open_url", { url: "https://npcap.com/#download" }));
     });
 }
-document.querySelectorAll("nav.side button").forEach((b) => (b.onclick = () => { page = b.dataset.page; render(); }));
+document.querySelectorAll("nav.side button[data-page]").forEach((b) => (b.onclick = () => { page = b.dataset.page; render(); }));
+// Two clicks: the first one asks.
+let quitArmed = null;
+document.getElementById("quit").onclick = (e) => {
+  if (quitArmed) return invoke("quit");
+  e.currentTarget.textContent = L("quitAsk");
+  quitArmed = setTimeout(() => { quitArmed = null; e.currentTarget.textContent = L("quit"); }, 3000);
+};
 
 async function refreshStatus() {
   const st = await invoke("status");

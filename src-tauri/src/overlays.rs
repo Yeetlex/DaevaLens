@@ -9,6 +9,11 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Webview
 /// Whether overlays should be on screen now (game running, in front…).
 static SHOWN: AtomicBool = AtomicBool::new(true);
 
+/// Before the overlays exist: whether they start on screen.
+pub fn set_initially_shown(shown: bool) {
+    SHOWN.store(shown, Ordering::Relaxed);
+}
+
 pub fn label(widget: &str) -> String {
     format!("ov-{widget}")
 }
@@ -57,7 +62,11 @@ fn open_widget(app: &AppHandle, widget: &str) {
     } else {
         let _ = window.set_position(default_position(&window, &settings, widget));
     }
-    let _ = window.set_ignore_cursor_events(settings.locked);
+    // tao aborts on click-through for a window that was never shown (GTK has
+    // no GdkWindow for it yet): only for visible ones, the rest when shown.
+    if SHOWN.load(Ordering::Relaxed) {
+        let _ = window.set_ignore_cursor_events(settings.locked);
+    }
 
     let app2 = app.clone();
     let name = widget.to_string();
@@ -126,7 +135,9 @@ fn remember(app: &AppHandle, widget: &str, pos: Option<PhysicalPosition<i32>>, s
 pub fn apply_lock(app: &AppHandle) {
     let settings = app.state::<SettingsStore>().get();
     for widget in WIDGETS {
-        if let Some(w) = app.get_webview_window(&label(widget)) {
+        if let Some(w) = app.get_webview_window(&label(widget))
+            && w.is_visible().unwrap_or(false)
+        {
             let _ = w.set_ignore_cursor_events(settings.locked);
         }
     }
@@ -135,9 +146,15 @@ pub fn apply_lock(app: &AppHandle) {
 
 pub fn set_all_visible(app: &AppHandle, visible: bool) {
     SHOWN.store(visible, Ordering::Relaxed);
+    let locked = app.state::<SettingsStore>().get().locked;
     for widget in WIDGETS {
         if let Some(w) = app.get_webview_window(&label(widget)) {
-            let _ = if visible { w.show() } else { w.hide() };
+            if visible {
+                let _ = w.show();
+                let _ = w.set_ignore_cursor_events(locked);
+            } else {
+                let _ = w.hide();
+            }
         }
     }
 }
@@ -166,10 +183,22 @@ pub fn open_panel(app: &AppHandle) {
         let _ = w.set_focus();
         return;
     }
-    let _ = WebviewWindowBuilder::new(app, "panel", WebviewUrl::App("panel.html".into()))
+    let Ok(panel) = WebviewWindowBuilder::new(app, "panel", WebviewUrl::App("panel.html".into()))
         .title("DaevaLens")
         .inner_size(1150.0, 800.0)
         .min_inner_size(900.0, 620.0)
         .center()
-        .build();
+        .build()
+    else {
+        return;
+    };
+    // Closing the panel in edit mode would leave the overlays catching clicks
+    // over the game: lock them again.
+    let app2 = app.clone();
+    panel.on_window_event(move |event| {
+        if matches!(event, WindowEvent::Destroyed) && !app2.state::<SettingsStore>().get().locked {
+            app2.state::<SettingsStore>().update(|s| s.locked = true);
+            apply_lock(&app2);
+        }
+    });
 }

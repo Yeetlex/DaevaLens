@@ -201,7 +201,8 @@ pub struct Tracker {
     result: Option<(FightView, i64)>,
     /// (time, damage on focus target) for the time-to-kill rate.
     focus_samples: VecDeque<(i64, i64)>,
-    watch_state: HashMap<String, (bool, Option<i64>, bool)>, // active, down since, alerted
+    /// Per watch: up, down since, alerted, and the target it was up on.
+    watch_state: HashMap<String, (bool, Option<i64>, bool, i32)>,
     pub last_alerts: Vec<Alert>,
     initialized: bool,
 }
@@ -378,7 +379,11 @@ impl Tracker {
         };
         let tracker = self.watch_views(storage, data, settings, me, focus, start, now);
         if self.fight.is_some() && settings.alerts {
-            self.check_alerts(&tracker, now);
+            let focus_dead = focus.is_some_and(|id| storage.is_entity_dead(id));
+            self.check_alerts(&tracker, focus.unwrap_or(0), focus_dead, now);
+        } else {
+            // A new fight starts from scratch: nothing it has not put up yet "dropped".
+            self.watch_state.clear();
         }
 
         self.prev = current;
@@ -690,12 +695,18 @@ impl Tracker {
             .collect()
     }
 
-    fn check_alerts(&mut self, tracker: &[WatchView], now: i64) {
+    fn check_alerts(&mut self, tracker: &[WatchView], focus: i32, focus_dead: bool, now: i64) {
         for w in tracker.iter().filter(|w| w.alert) {
             let key = format!("{}|{}", w.on, w.name);
-            let state = self.watch_state.entry(key).or_insert((false, None, false));
+            let state = self.watch_state.entry(key).or_insert((false, None, false, 0));
+            let on_target = w.on == "target";
+            // A debuff leaving with its target (killed, or you switched) did not drop.
+            if on_target && (focus != state.3 || focus_dead) {
+                *state = (w.active, None, false, focus);
+                continue;
+            }
             if w.active {
-                *state = (true, None, false);
+                *state = (true, None, false, focus);
             } else if state.0 {
                 let since = *state.1.get_or_insert(now);
                 // A refresh can drop it for a moment: wait before alerting.

@@ -12,7 +12,7 @@
   ];
   const settings = {
     language: new URLSearchParams(location.search).get("lang") || "es", idleResetS: 8, keepResultS: 15, locked: !location.search.includes("edit"),
-    hideUnfocused: false, onlyWithGame: true, launchAtLogin: false, alerts: true, alertSound: false, onlyMyTargets: true, historyLimit: 300, watchPresetFor: "Elementalist",
+    hideUnfocused: false, onlyWithGame: true, launchAtLogin: false, alerts: true, alertSound: false, onlyMyTargets: true, historyLimit: 300, activeClass: "Elementalist", watchesByClass: {},
     overlays: Object.fromEntries(["dps", "target", "tracker", "skills", "summary", "alerts", "info"].map((w) => [w, { enabled: true, x: null, y: null, width: 300, height: 200, opacity: 70, scale: 100 }])),
     watches: [
       { name: "Unificación elemental", on: "self", alert: false, stacks: true },
@@ -47,7 +47,7 @@
   const handlers = {};
   const emit = (ev, payload) => (handlers[ev] || []).forEach((cb) => cb({ payload }));
   const responses = {
-    get_settings: () => settings, save_settings: (a) => Object.assign(settings, a.settings), get_live: live,
+    get_settings: () => settings, load_class_preset: () => settings, save_settings: (a) => Object.assign(settings, a.settings), get_live: live,
     list_history: () => Array.from({ length: 14 }, (_, i) => ({ id: 1760000000000 - i * 99999, startMs: Date.now() - i * 3.6e6, durationS: 30 + i * 17, target: i % 3 ? "Araña de cueva" : "Guardián Ancestral del Abismo Profundo de Krao (Pesadilla)", isBoss: !(i % 3), myDps: 3.2e7 / (i + 1), totalDps: 9e8, players: 6, kills: 3 })),
     get_fight: () => ({ ...fight(true), timeline, watches: live().tracker }),
     seen_abnormals: () => [{ name: "Escudo de tierra", on: "self", icon: null }, { name: "Ralentización", on: "target", icon: null }],

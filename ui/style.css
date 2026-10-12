@@ -139,6 +139,8 @@ nav.side button { all: unset; cursor: pointer; padding: 9px 12px; border-radius:
 nav.side button:hover { background: rgba(255,255,255,.04); color: var(--text); }
 nav.side button.active { background: rgba(126,224,255,.1); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
 nav.side .grow { flex: 1; }
+nav.side button.quit { font-size: 12px; color: var(--dim); padding: 7px 12px; }
+nav.side button.quit:hover { color: var(--bad); background: rgba(255,107,129,.08); }
 nav.side .status { font-size: 11px; color: var(--muted); padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; }
 nav.side .status div { display: flex; gap: 8px; align-items: center; }
 main { overflow-y: auto; padding: 26px 30px; }

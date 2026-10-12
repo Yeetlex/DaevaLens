@@ -104,6 +104,24 @@ fn open_url(app: AppHandle, url: String) {
     }
 }
 
+/// Replace the tracker list with the preset of the class you are playing.
+#[tauri::command]
+fn load_class_preset(app: AppHandle, store: State<SettingsStore>, engine: State<Arc<Engine>>) -> Settings {
+    let job = engine.last.lock().me_job.clone();
+    let saved = store.update(|s| {
+        if let Some(job) = job {
+            s.watches = settings::class_preset(&job, &s.language);
+        }
+    });
+    let _ = app.emit("settings-changed", &saved);
+    saved
+}
+
+#[tauri::command]
+fn quit(app: AppHandle) {
+    app.exit(0);
+}
+
 #[tauri::command]
 fn reset_fight(engine: State<Arc<Engine>>) {
     engine.reset();
@@ -300,7 +318,9 @@ pub fn run() {
             open_panel,
             seen_abnormals,
             status,
-            open_url
+            open_url,
+            quit,
+            load_class_preset
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -315,6 +335,11 @@ pub fn run() {
             if let Err(e) = build_tray(&handle) {
                 tracing::warn!("no tray icon: {e}");
             }
+            // Do not flash the overlays at login only to hide them half a second later.
+            let s = app.state::<SettingsStore>().get();
+            let game = a2t::platform::window_detector::find_aion2_window();
+            let here = !hyprland::running() || hyprland::on_game_workspace().unwrap_or(true);
+            overlays::set_initially_shown((!s.only_with_game || game) && here);
             overlays::sync(&handle);
             let background = args.iter().any(|a| a == "--background");
             if (first_run && !background) || args.iter().any(|a| a == "--panel") {

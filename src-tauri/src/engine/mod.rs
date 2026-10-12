@@ -98,16 +98,21 @@ impl Engine {
                 live.ping_ms = self.ping.current_ping_ms().map(|p| p as u32);
                 live.game_seen = self.port.current_port().is_some();
 
-                // First time we learn the class: a starter watch list.
+                // One tracker list per class: switching characters swaps it,
+                // and a class seen for the first time starts from its preset.
                 if let Some(job) = live.me_job.clone()
-                    && settings.watch_preset_for.is_none()
+                    && settings.active_class.as_deref() != Some(job.as_str())
                 {
-                    let preset = class_preset(&job, &settings.language);
                     store.update(|s| {
-                        if s.watches.is_empty() {
-                            s.watches = preset;
+                        if let Some(old) = s.active_class.take() {
+                            let list = std::mem::take(&mut s.watches);
+                            s.watches_by_class.insert(old, list);
                         }
-                        s.watch_preset_for = Some(job);
+                        s.watches = s
+                            .watches_by_class
+                            .remove(&job)
+                            .unwrap_or_else(|| class_preset(&job, &s.language));
+                        s.active_class = Some(job);
                     });
                     let _ = app.emit("settings-changed", store.get());
                 }

@@ -65,8 +65,11 @@ pub struct Settings {
     pub only_my_targets: bool,
     pub overlays: BTreeMap<String, OverlayConfig>,
     pub watches: Vec<Watch>,
-    /// The watches were filled in for a class already (once).
-    pub watch_preset_for: Option<String>,
+    /// The class whose list `watches` is (the last class you played).
+    #[serde(alias = "watchPresetFor")]
+    pub active_class: Option<String>,
+    /// Every other class's list, kept while you play another.
+    pub watches_by_class: BTreeMap<String, Vec<Watch>>,
     pub history_limit: usize,
 }
 
@@ -97,7 +100,8 @@ impl Default for Settings {
             only_my_targets: true,
             overlays,
             watches: Vec::new(),
-            watch_preset_for: None,
+            active_class: None,
+            watches_by_class: BTreeMap::new(),
             history_limit: 300,
         }
     }
