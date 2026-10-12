@@ -63,6 +63,9 @@ pub struct PlayerRow {
     pub share: f64,
     pub is_me: bool,
     pub crit_rate: f64,
+    /// Healing done in the fight (by them and their summons) and per second.
+    pub heal: i64,
+    pub hps: f64,
 }
 
 #[derive(Clone, Serialize, Debug, Default)]
@@ -97,6 +100,8 @@ pub struct MeStats {
     pub best_hit_skill: Option<String>,
     /// Share of your damage done by your summons.
     pub summon_share: f64,
+    pub heal: i64,
+    pub hps: f64,
 }
 
 #[derive(Clone, Serialize, Debug, Default)]
@@ -158,6 +163,9 @@ pub struct FightRecord {
     pub view: FightView,
     pub timeline: Vec<Second>,
     pub watches: Vec<WatchView>,
+    /// The enemies you hit, for learning a tracker list (not saved).
+    #[serde(skip)]
+    pub target_ids: Vec<i32>,
 }
 
 #[derive(Clone, Serialize, Debug)]
@@ -205,6 +213,10 @@ pub struct Tracker {
     watch_state: HashMap<String, (bool, Option<i64>, bool, i32)>,
     pub last_alerts: Vec<Alert>,
     initialized: bool,
+    /// Healing per player in the current fight, refreshed about once a second:
+    /// upstream keeps every heal tick of the session, too much to copy each tick.
+    heal_cache: HashMap<i32, i64>,
+    heal_calls: u32,
 }
 
 fn job_of(t: &TargetCombatData, actor: i32) -> Option<String> {
@@ -225,6 +237,8 @@ impl Tracker {
             watch_state: HashMap::new(),
             last_alerts: Vec::new(),
             initialized: false,
+            heal_cache: HashMap::new(),
+            heal_calls: 0,
         }
     }
 
@@ -354,7 +368,9 @@ impl Tracker {
             if fight_over {
                 let f = self.fight.take().expect("fight");
                 let watches = self.watch_views(storage, data, settings, me, f.focus, f.start_ms, f.last_activity_ms);
-                ended = Some(FightRecord { view: v.clone(), timeline: f.seconds, watches });
+                let target_ids = f.my_targets.iter().copied().collect();
+                ended = Some(FightRecord { view: v.clone(), timeline: f.seconds, watches, target_ids });
+                self.heal_cache.clear();
                 self.result = Some((v.clone(), now));
             }
             view = Some(v);
@@ -478,18 +494,48 @@ impl Tracker {
             }
         }
 
+        // Healing inside the fight window, per healer (summons count for their owner).
+        if self.heal_calls % 10 == 0 || over {
+            self.heal_cache.clear();
+            for (actor, skills) in storage.get_heal_snapshot() {
+                let owner = owner_of(actor);
+                if !(Some(owner) == me || party.contains(&owner) || per_player.contains_key(&owner)) {
+                    continue;
+                }
+                let healed: i64 = skills
+                    .values()
+                    .flat_map(|s| s.ticks.iter())
+                    .filter(|(t, _)| *t >= f.start_ms && *t <= end)
+                    .map(|(_, a)| *a)
+                    .sum();
+                if healed > 0 {
+                    *self.heal_cache.entry(owner).or_default() += healed;
+                }
+            }
+        }
+        self.heal_calls = self.heal_calls.wrapping_add(1);
+        for id in self.heal_cache.keys() {
+            per_player.entry(*id).or_default();
+        }
+        let heals = &self.heal_cache;
+
         let mut players: Vec<PlayerRow> = per_player
             .iter()
-            .filter(|(_, c)| c.damage > 0)
-            .map(|(&id, c)| PlayerRow {
-                id,
-                name: storage.get_nickname(id).unwrap_or_else(|| format!("#{id}")),
-                job: per_player_job.get(&id).cloned(),
-                damage: c.damage,
-                dps: c.damage as f64 / duration_s,
-                share: rate(c.damage, total_damage),
-                is_me: Some(id) == me,
-                crit_rate: rate(c.crit, c.hits),
+            .filter(|(id, c)| c.damage > 0 || heals.get(id).is_some_and(|h| *h > 0))
+            .map(|(&id, c)| {
+                let heal = heals.get(&id).copied().unwrap_or(0);
+                PlayerRow {
+                    id,
+                    name: storage.get_nickname(id).unwrap_or_else(|| format!("#{id}")),
+                    job: per_player_job.get(&id).cloned(),
+                    damage: c.damage,
+                    dps: c.damage as f64 / duration_s,
+                    share: rate(c.damage, total_damage),
+                    is_me: Some(id) == me,
+                    crit_rate: rate(c.crit, c.hits),
+                    heal,
+                    hps: heal as f64 / duration_s,
+                }
             })
             .collect();
         players.sort_by(|a, b| b.damage.cmp(&a.damage));
@@ -544,6 +590,8 @@ impl Tracker {
                 best_hit: best.map(|s| s.max_hit).unwrap_or(0),
                 best_hit_skill: best.map(|s| s.name.clone()),
                 summon_share: rate(summon_damage, c.damage),
+                heal: heals.get(&me.unwrap_or(0)).copied().unwrap_or(0),
+                hps: heals.get(&me.unwrap_or(0)).copied().unwrap_or(0) as f64 / duration_s,
             }
         });
 
@@ -715,6 +763,238 @@ impl Tracker {
                     self.last_alerts.push(Alert { kind: "dropped".into(), text: w.name.clone(), icon: w.icon.clone() });
                 }
             }
+        }
+    }
+}
+
+/// A starter tracker list for a class with no preset: what you kept up in
+/// your first fight. Your own timed buffs on you, and the debuffs you put on
+/// your targets, by time up; passives and auras without a timer are left out.
+pub fn learn_watches(
+    storage: &DataStorage,
+    data: &GameData,
+    me: i32,
+    start: i64,
+    end: i64,
+    targets: &[i32],
+) -> Vec<Watch> {
+    let mut entities: HashSet<i32> = targets.iter().copied().collect();
+    entities.insert(me);
+    let mut up: HashMap<(String, &'static str), i64> = HashMap::new();
+    for t in storage.fight_abnormal_tracks(start, end, &entities) {
+        if t.endless || t.owner != me {
+            continue;
+        }
+        let on = if t.entity == me { "self" } else { "target" };
+        let name = data.abnormal_name(t.abnormal);
+        if name.starts_with('#') {
+            continue;
+        }
+        let span = t.end_ms.unwrap_or(end).min(end) - t.start_ms.max(start);
+        *up.entry((name, on)).or_default() += span.max(0);
+    }
+    let mut ranked: Vec<_> = up.into_iter().filter(|(_, ms)| *ms >= 3000).collect();
+    ranked.sort_by(|a, b| b.1.cmp(&a.1));
+    let pick = |on: &str, n: usize| {
+        ranked
+            .iter()
+            .filter(|((_, o), _)| *o == on)
+            .take(n)
+            .map(|((name, o), _)| Watch { name: name.clone(), on: o.to_string(), alert: false, stacks: false })
+            .collect::<Vec<_>>()
+    };
+    let mut out = pick("self", 4);
+    out.extend(pick("target", 3));
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use a2t::entity::damage_packet::ParsedDamagePacket;
+
+    const ME: i32 = 5001; // Spiritmaster
+    const SPIRIT: i32 = 5002; // my summon
+    const GLADIATOR: i32 = 6001;
+    const CLERIC: i32 = 7001;
+    const STRANGER: i32 = 8001;
+    const BOSS: i32 = 90001;
+    const OTHER_MOB: i32 = 90002;
+
+    fn hit(storage: &DataStorage, actor: i32, target: i32, skill: i32, dmg: i32, ts: i64) {
+        let mut p = ParsedDamagePacket::new();
+        p.set_actor_id(actor);
+        p.set_target_id(target);
+        p.set_skill_code(skill);
+        p.set_damage(dmg);
+        p.set_timestamp(ts);
+        storage.append_damage(p);
+    }
+
+    fn setup() -> (DataStorage, GameData, Settings) {
+        let storage = DataStorage::new();
+        storage.set_local_player_id(Some(ME as i64));
+        for (id, name) in [(ME, "Yo"), (GLADIATOR, "Glad"), (CLERIC, "Cleri"), (STRANGER, "Otro")] {
+            storage.append_nickname(id, name);
+        }
+        storage.append_mob(BOSS, 2_000_001);
+        storage.append_mob(OTHER_MOB, 2_000_002);
+        storage.register_confirmed_summon_by_id(SPIRIT, ME);
+        let data = GameData::load(GameData::find_dir(None), "es");
+        (storage, data, Settings::default())
+    }
+
+    #[test]
+    fn group_fight_with_all_roles() {
+        let (storage, data, settings) = setup();
+        let mut tr = Tracker::new();
+        let t0 = 1_800_000_000_000i64;
+        // Damage from before DaevaLens looked does not count.
+        hit(&storage, ME, OTHER_MOB, 16_010_000, 999_999, t0 - 60_000);
+        tr.tick(&storage, &data, &settings, t0);
+
+        let mut ended = None;
+        for i in 1..=60 {
+            let now = t0 + i * 100;
+            if i <= 30 {
+                hit(&storage, ME, BOSS, 16_010_000, 1_000, now); // Spiritmaster skill
+                hit(&storage, SPIRIT, BOSS, 16_050_000, 500, now); // spirit, counts for me
+                hit(&storage, GLADIATOR, BOSS, 11_010_000, 2_000, now); // Gladiator on my target
+                hit(&storage, CLERIC, BOSS, 17_010_000, 100, now); // Cleric chips in
+                storage.append_heal(CLERIC, 17_020_000, 3_000, false, now);
+                hit(&storage, STRANGER, OTHER_MOB, 15_010_000, 50_000, now); // not my target
+            }
+            let (live, rec) = tr.tick(&storage, &data, &Settings { idle_reset_s: 2, ..settings.clone() }, now + 1);
+            if i == 25 {
+                let f = live.fight.as_ref().expect("fight running");
+                let me = f.players.iter().find(|p| p.is_me).expect("me");
+                assert_eq!(me.damage, 25 * 1_500, "my hits + my spirit's since the first one, nothing from before");
+                assert!(f.players.iter().all(|p| p.id != STRANGER), "stranger on another mob is out");
+                assert!(f.players.iter().any(|p| p.id == GLADIATOR), "gladiator on my target is in");
+            }
+            if rec.is_some() {
+                ended = rec;
+            }
+        }
+        let rec = ended.expect("fight ended after the idle reset");
+        let f = &rec.view;
+        let me = f.players.iter().find(|p| p.is_me).unwrap();
+        assert_eq!(me.damage, 30 * 1_500);
+        let me_stats = f.me.as_ref().unwrap();
+        assert!(me_stats.summon_share > 0.3 && me_stats.summon_share < 0.35, "{}", me_stats.summon_share);
+        let cleric = f.players.iter().find(|p| p.id == CLERIC).expect("cleric listed");
+        assert_eq!(cleric.heal, 30 * 3_000, "cleric healing in the window");
+        assert!(cleric.hps > 0.0);
+        let glad = f.players.iter().find(|p| p.id == GLADIATOR).unwrap();
+        assert_eq!(glad.damage, 30 * 2_000);
+        assert_eq!(f.players[0].id, GLADIATOR, "sorted by damage");
+        assert!(rec.target_ids.contains(&BOSS));
+    }
+
+    #[test]
+    fn every_class_is_named() {
+        let (storage, data, settings) = setup();
+        let mut tr = Tracker::new();
+        let t0 = 1_800_000_000_000i64;
+        tr.tick(&storage, &data, &settings, t0);
+        // One player per class band 11..19, all on my target.
+        for (k, band) in (11..=19).enumerate() {
+            let id = 20_000 + k as i32;
+            storage.append_nickname(id, &format!("P{band}"));
+            hit(&storage, id, BOSS, band * 1_000_000 + 10_000, 100, t0 + 50);
+        }
+        hit(&storage, ME, BOSS, 16_010_000, 100, t0 + 50);
+        let (live, _) = tr.tick(&storage, &data, &settings, t0 + 100);
+        let f = live.fight.expect("fight");
+        assert_eq!(f.players.len(), 10, "{:?}", f.players.iter().map(|p| (&p.name, &p.job)).collect::<Vec<_>>());
+    }
+
+    // Real records from upstream's tests (a Spiritmaster, entity 6759), and a
+    // Corrode on enemy 7000 built in the same layout.
+    const SELF: i32 = 6759;
+    const ENEMY: i32 = 7000;
+    const BENEDICTION_ON: &str = "342a38e73401138202e165a6091027000000000000bc5cba14a1010000e73403300af7000047e44c47b46a22c700e85a46";
+    const BENEDICTION_OFF: &str = "0d2c38e7340100820201";
+    const CORRODE_ON: &str = "342a38d8360113ac02614ba0091027000000000000bc5cba14a1010000e73403f06df6000047e44c47b46a22c700e85a46";
+    const CORRODE_OFF: &str = "0d2c38d8360100ac0201";
+
+    fn hex(s: &str) -> Vec<u8> {
+        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+    }
+
+    fn abnormal(storage: &DataStorage, record: &str, at: i64) {
+        let mut bytes = hex(record);
+        // An "added" record carries the server's end time (bytes 21..29): the
+        // captured one is from 2026-10-06, so move it to 10 s after `at`.
+        if bytes.len() > 29 && bytes[1..3] == [0x2a, 0x38] {
+            bytes[21..29].copy_from_slice(&(at + 10_000).to_le_bytes());
+        }
+        a2t::clock::set_override(Some(at));
+        storage.note_abnormal_packet(&bytes);
+        a2t::clock::set_override(None);
+    }
+
+    fn solo() -> (DataStorage, GameData) {
+        let storage = DataStorage::new();
+        storage.set_local_player_id(Some(SELF as i64));
+        storage.append_nickname(SELF, "Yo");
+        storage.append_mob(ENEMY, 2_000_001);
+        storage.append_mob(ENEMY + 1, 2_000_001);
+        (storage, GameData::load(GameData::find_dir(None), "es"))
+    }
+
+    fn watch(name: &str, on: &str) -> Watch {
+        Watch { name: name.into(), on: on.into(), alert: true, stacks: false }
+    }
+
+    #[test]
+    fn self_buff_is_tracked_and_learned() {
+        let (storage, data) = solo();
+        let settings = Settings { watches: vec![watch("Favor de Espíritu", "self")], idle_reset_s: 30, ..Settings::default() };
+        let mut tr = Tracker::new();
+        let t0 = a2t::clock::now_ms();
+        tr.tick(&storage, &data, &settings, t0);
+        hit(&storage, SELF, ENEMY, 16_010_000, 100, t0 + 50);
+        abnormal(&storage, BENEDICTION_ON, t0 + 100);
+        let (live, _) = tr.tick(&storage, &data, &settings, t0 + 1_000);
+        assert!(live.tracker[0].active, "buff up: {:?}", live.tracker);
+        abnormal(&storage, BENEDICTION_OFF, t0 + 6_000);
+        hit(&storage, SELF, ENEMY, 16_010_000, 100, t0 + 6_500);
+        let (live, _) = tr.tick(&storage, &data, &settings, t0 + 8_000);
+        let w = &live.tracker[0];
+        assert!(!w.active);
+        assert!(w.uptime > 0.6 && w.uptime < 0.8, "5.9 s of 8 s: {}", w.uptime);
+        let learned = learn_watches(&storage, &data, SELF, t0, t0 + 8_000, &[ENEMY]);
+        assert!(learned.iter().any(|w| w.name == "Favor de Espíritu" && w.on == "self"), "{learned:?}");
+    }
+
+    #[test]
+    fn target_debuff_alerts_only_on_a_real_drop() {
+        let (storage, data) = solo();
+        let settings = Settings { watches: vec![watch("Corrosión", "target")], idle_reset_s: 30, ..Settings::default() };
+        let mut tr = Tracker::new();
+        let t0 = a2t::clock::now_ms();
+        let mut tick = |tr: &mut Tracker, at: i64| {
+            hit(&storage, SELF, ENEMY, 16_010_000, 100, at - 10);
+            let (live, _) = tr.tick(&storage, &data, &settings, at);
+            (live.tracker[0].active, tr.last_alerts.iter().filter(|a| a.kind == "dropped").count())
+        };
+        tick(&mut tr, t0);
+        abnormal(&storage, CORRODE_ON, t0 + 100);
+        assert_eq!(tick(&mut tr, t0 + 500), (true, 0), "up on my target");
+        abnormal(&storage, CORRODE_OFF, t0 + 2_000);
+        assert_eq!(tick(&mut tr, t0 + 2_500), (false, 0), "not yet: could be a refresh");
+        assert_eq!(tick(&mut tr, t0 + 3_400), (false, 0), "1.2 s after it was seen down, not before");
+        assert_eq!(tick(&mut tr, t0 + 3_800), (false, 1), "dropped from a live target");
+        assert_eq!(tick(&mut tr, t0 + 4_200).1, 0, "once");
+
+        // Up again, then the target dies: that is not a drop.
+        abnormal(&storage, CORRODE_ON, t0 + 5_000);
+        assert_eq!(tick(&mut tr, t0 + 5_500), (true, 0));
+        storage.mark_entity_dead(ENEMY);
+        abnormal(&storage, CORRODE_OFF, t0 + 6_000);
+        for at in [t0 + 6_500, t0 + 7_500, t0 + 9_000] {
+            assert_eq!(tick(&mut tr, at).1, 0, "no alert for a dead target");
         }
     }
 }

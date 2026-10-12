@@ -74,6 +74,7 @@ body.edit .grip { display: block; }
 .row .rank { width: 14px; color: var(--muted); font-size: 11px; }
 .row .name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .row .val { font-weight: 600; }
+.heal { color: var(--good); font-size: 11px; font-weight: 600; }
 .row .sub { color: var(--muted); font-size: 11px; width: 38px; text-align: right; }
 .big { font-size: 22px; font-weight: 700; line-height: 1; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 

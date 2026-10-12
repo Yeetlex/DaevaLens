@@ -34,7 +34,8 @@
     const dur = 47 + t * 0.1;
     const players = names.map((n, i) => {
       const dps = Math.round(98765432 / (i + 1.3) + Math.sin(t / 7 + i) * 400000);
-      return { id: i + 1, name: n, job: jobs[i], damage: dps * dur, dps, share: 1 / (i + 1.3) / 3.2, isMe: i === 0, critRate: 0.42 };
+      const hps = jobs[i] === "Cleric" || jobs[i] === "Chanter" ? 2.1e7 / (i + 1) : 0;
+      return { id: i + 1, name: n, job: jobs[i], damage: dps * dur, dps, share: 1 / (i + 1.3) / 3.2, isMe: i === 0, critRate: 0.42, heal: hps * dur, hps };
     });
     const total = players.reduce((a, p) => a + p.damage, 0);
     return {

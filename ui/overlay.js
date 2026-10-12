@@ -49,7 +49,7 @@ function renderDps() {
   const total = f ? `<span class="num muted">${t("total")}</span> <b class="num">${fmt(f.totalDps)}</b>` : "";
   root.querySelector(".head").innerHTML =
     header("DPS", phasePill(live)) +
-    (f?.me ? `<div style="display:flex;align-items:baseline;gap:8px"><span class="big num">${fmt(f.me.dps)}</span><span class="muted num">${fmt(f.me.damage)} · ${t("crit")} ${pct(f.me.critRate)}</span><span class="spacer" style="flex:1"></span>${total}</div>` : "");
+    (f?.me ? `<div style="display:flex;align-items:baseline;gap:8px"><span class="big num">${fmt(f.me.dps)}</span><span class="muted num">${f.me.hps > 0 ? `<span class="heal">+${fmt(f.me.hps)} ${t("hps")}</span> · ` : ""}${fmt(f.me.damage)} · ${t("crit")} ${pct(f.me.critRate)}</span><span class="spacer" style="flex:1"></span>${total}</div>` : "");
   root.classList.toggle("faded", live?.phase === "result");
   const rows = root.querySelector(".rows");
   const players = f?.players ?? [];
@@ -72,7 +72,7 @@ function renderDps() {
     if (!el) {
       el = document.createElement("div");
       el.className = "row";
-      el.innerHTML = `<div class="fill"></div><span class="rank num"></span><span class="name"></span><span class="val num"></span><span class="sub num"></span>`;
+      el.innerHTML = `<div class="fill"></div><span class="rank num"></span><span class="name"></span><span class="heal num"></span><span class="val num"></span><span class="sub num"></span>`;
       rowEls.set(p.id, el);
     }
     el.classList.toggle("me", p.isMe);
@@ -81,6 +81,7 @@ function renderDps() {
     fill.style.background = jobColor(p.job);
     el.querySelector(".rank").textContent = i + 1;
     el.querySelector(".name").textContent = p.name;
+    el.querySelector(".heal").textContent = p.hps > 0 ? `+${fmt(p.hps)}` : "";
     el.querySelector(".val").textContent = fmt(p.dps);
     el.querySelector(".sub").textContent = pct(p.share);
     if (rows.children[slot] !== el) rows.insertBefore(el, rows.children[slot] || null);
@@ -144,7 +145,7 @@ function renderSummary(animate = false) {
   root.innerHTML = header(`${t("result")} · ${esc(f.target?.name ?? "")}`, `<span class="pill num">${clock(f.durationS)}</span>`) +
     `<div class="sumgrid">
       ${stat(t("myDps"), fmt(m.dps))}${stat(t("groupDps"), fmt(f.totalDps))}${stat(t("damage"), fmt(m.damage))}
-      ${stat(t("bestHit"), fmt(m.bestHit))}${stat(t("critRate"), pct(m.critRate))}${stat(t("kills"), f.kills ?? 0)}
+      ${stat(t("bestHit"), fmt(m.bestHit))}${stat(t("critRate"), pct(m.critRate))}${m.hps > 0 ? stat(t("myHps"), fmt(m.hps)) : stat(t("kills"), f.kills ?? 0)}
     </div>`;
   if (animate) { root.classList.remove("pop"); void root.offsetWidth; root.classList.add("pop"); }
   root.classList.toggle("faded", live?.phase === "fight");

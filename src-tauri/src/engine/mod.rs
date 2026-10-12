@@ -118,6 +118,31 @@ impl Engine {
                     let _ = app.emit("settings-changed", store.get());
                 }
 
+                // A class with no preset learns its tracker list from its first fight.
+                if let Some(record) = ended.as_ref()
+                    && let (Some(job), Some(me)) = (settings.active_class.clone(), self.storage.local_player_id())
+                    && settings.watches.is_empty()
+                    && !settings.learned_classes.contains(&job)
+                    && record.view.duration_s >= 10.0
+                {
+                    let learned = fight::learn_watches(
+                        &self.storage,
+                        &self.data,
+                        me as i32,
+                        record.view.start_ms,
+                        record.view.end_ms.unwrap_or(now),
+                        &record.target_ids,
+                    );
+                    if !learned.is_empty() {
+                        store.update(|s| {
+                            if s.watches.is_empty() {
+                                s.watches = learned;
+                            }
+                            s.learned_classes.push(job);
+                        });
+                        let _ = app.emit("settings-changed", store.get());
+                    }
+                }
                 if let Some(record) = ended {
                     let _ = app.emit("fight-ended", &record.view);
                     let history = app.state::<History>();

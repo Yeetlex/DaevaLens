@@ -70,6 +70,8 @@ pub struct Settings {
     pub active_class: Option<String>,
     /// Every other class's list, kept while you play another.
     pub watches_by_class: BTreeMap<String, Vec<Watch>>,
+    /// Classes whose list was learned from a first fight (once each).
+    pub learned_classes: Vec<String>,
     pub history_limit: usize,
     /// Server region, for the events that run on the server's clock.
     pub region: String,
@@ -106,6 +108,7 @@ impl Default for Settings {
             watches: Vec::new(),
             active_class: None,
             watches_by_class: BTreeMap::new(),
+            learned_classes: Vec::new(),
             history_limit: 300,
             region: "eu".into(),
             events: crate::events::builtin_events("es"),

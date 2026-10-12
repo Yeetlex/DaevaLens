@@ -23,7 +23,8 @@ const S = {
     when: "Cuándo", target: "Objetivo", duration: "Duración", myDps: "Tu DPS", groupDps: "DPS grupo", players: "Jugadores",
     none: "Todavía no hay combates guardados.", back: "← Volver", del: "Borrar",
     damage: "Daño", hits: "Golpes", crit: "Crít.", backHit: "Espalda", maxHit: "Mejor golpe", share: "Parte", dps: "DPS",
-    kills: "Enemigos muertos", deaths: "Caídos", bestHit: "Mejor golpe", critRate: "Críticos", summonShare: "Invocaciones",
+    kills: "Enemigos muertos", hps: "CPS", heal: "Curación", myHps: "Tu curación/s",
+    learnHint: "Tu clase no tiene lista predefinida: tras tu primer combate de más de 10 s, DaevaLens añadirá solo los buffs y debuffs que más mantuviste.", deaths: "Caídos", bestHit: "Mejor golpe", critRate: "Críticos", summonShare: "Invocaciones",
     timeline: "DPS durante el combate", you: "Tú", group: "Grupo", skillsT: "Tus habilidades", playersT: "Jugadores", uptimes: "Rastreador",
     uptime: "Tiempo activo", onSelf: "en ti", onTarget: "en el objetivo",
     tTitle: "Rastreador", tLead: "Elige qué buffs (en ti) y debuffs (en tu objetivo, puestos por ti) quieres seguir.",
@@ -62,7 +63,8 @@ const S = {
     when: "When", target: "Target", duration: "Duration", myDps: "Your DPS", groupDps: "Group DPS", players: "Players",
     none: "No fights saved yet.", back: "← Back", del: "Delete",
     damage: "Damage", hits: "Hits", crit: "Crit", backHit: "Back", maxHit: "Best hit", share: "Share", dps: "DPS",
-    kills: "Kills", deaths: "Deaths", bestHit: "Best hit", critRate: "Crit rate", summonShare: "Summons",
+    kills: "Kills", hps: "HPS", heal: "Healing", myHps: "Your HPS",
+    learnHint: "Your class has no preset: after your first fight longer than 10 s, DaevaLens adds the buffs and debuffs you kept up the most.", deaths: "Deaths", bestHit: "Best hit", critRate: "Crit rate", summonShare: "Summons",
     timeline: "DPS over the fight", you: "You", group: "Group", skillsT: "Your skills", playersT: "Players", uptimes: "Tracker",
     uptime: "Uptime", onSelf: "on you", onTarget: "on target",
     tTitle: "Tracker", tLead: "Pick the buffs (on you) and debuffs (on your target, applied by you) to follow.",
@@ -169,7 +171,7 @@ async function fightDetail(id) {
     <p class="lead num">${new Date(f.startMs).toLocaleString(getLang())} · ${clock(f.durationS)}</p>
     <div class="kpis">${kpi(L("myDps"), fmt(m.dps))}${kpi(L("groupDps"), fmt(f.totalDps))}${kpi(L("damage"), fmt(m.damage))}
       ${kpi(L("bestHit"), fmt(m.bestHit))}${kpi(L("critRate"), pct(m.critRate, 1))}${kpi(L("summonShare"), pct(m.summonShare))}
-      ${kpi(L("kills"), f.kills ?? 0)}${kpi(L("deaths"), (f.deaths ?? []).length)}</div>
+      ${m.hps > 0 ? kpi(L("myHps"), fmt(m.hps)) : ""}${kpi(L("kills"), f.kills ?? 0)}${kpi(L("deaths"), (f.deaths ?? []).length)}</div>
     <div class="section-title">${L("timeline")}</div>${chartSvg(f.timeline ?? [], f.durationS)}
     ${(f.watches ?? []).length ? `<div class="section-title">${L("uptimes")}</div><table><tbody>${f.watches.map((w) => `
       <tr><td style="width:30px">${icon(w.icon)}</td><td>${esc(w.name)} <span class="muted">· ${L(w.on === "target" ? "onTarget" : "onSelf")}</span></td>
@@ -180,9 +182,9 @@ async function fightDetail(id) {
       <td class="r num">${fmt(s.damage)}</td><td class="r num">${pct(s.share, 1)}</td><td class="r num">${fmt(s.dps)}</td><td class="r num">${s.hits}</td>
       <td class="r num">${pct(s.critRate)}</td><td class="r num">${pct(s.backRate)}</td><td class="r num">${fmt(s.maxHit)}</td></tr>`).join("")}</tbody></table>
     <div class="section-title">${L("playersT")}</div>
-    <table><thead><tr><th>${L("name")}</th><th class="r">${L("damage")}</th><th class="r">${L("dps")}</th><th class="r">${L("share")}</th><th class="r">${L("crit")}</th></tr></thead>
+    <table><thead><tr><th>${L("name")}</th><th class="r">${L("damage")}</th><th class="r">${L("dps")}</th><th class="r">${L("share")}</th><th class="r">${L("crit")}</th><th class="r">${L("hps")}</th></tr></thead>
     <tbody>${(f.players ?? []).map((p) => `<tr><td><span style="color:${jobColor(p.job)}">●</span> ${esc(p.name)} <span class="muted">${esc(jobName(p.job))}</span></td>
-      <td class="r num">${fmt(p.damage)}</td><td class="r num"><b>${fmt(p.dps)}</b></td><td class="r num">${pct(p.share, 1)}</td><td class="r num">${pct(p.critRate)}</td></tr>`).join("")}</tbody></table>`;
+      <td class="r num">${fmt(p.damage)}</td><td class="r num"><b>${fmt(p.dps)}</b></td><td class="r num">${pct(p.share, 1)}</td><td class="r num">${pct(p.critRate)}</td><td class="r num heal">${p.hps > 0 ? fmt(p.hps) : ""}</td></tr>`).join("")}</tbody></table>`;
   main.querySelector("#back").onclick = pageHistory;
   main.querySelector("#del").onclick = async () => { await invoke("delete_fight", { id }); pageHistory(); };
 }
@@ -192,6 +194,7 @@ async function pageTracker() {
   const live = await invoke("get_live");
   const has = (n, on) => settings.watches.some((w) => w.name.toLowerCase() === n.toLowerCase() && w.on === on);
   main.innerHTML = `<h1>${L("tTitle")}</h1><p class="lead">${L("tLead")}</p>
+    ${!settings.watches.length && live.meJob && live.meJob !== "Elementalist" ? `<div class="banner">${L("learnHint")}</div>` : ""}
     <div class="toolbar">${live.meJob ? `<button class="btn" id="preset">${L("preset")}</button>` : ""}</div>
     <table><thead><tr><th>${L("name")}</th><th>${L("on")}</th><th>${L("alert")}</th><th>${L("stacks")}</th><th></th></tr></thead>
     <tbody>${settings.watches.map((w, i) => `<tr>
