@@ -1,0 +1,53 @@
+# DaevaLens for Arch and derivatives (CachyOS, Manjaro, EndeavourOS).
+# Builds from the checkout this file sits in:  cd packaging/arch && makepkg -si
+pkgname=daevalens
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Multi-overlay combat meter for AION 2 (built on the A2Tools DPS Meter parser)"
+arch=('x86_64')
+url="https://github.com/Yeetlex/DaevaLens"
+license=('GPL-3.0-only')
+depends=('webkit2gtk-4.1' 'gtk3' 'libpcap' 'libcap' 'hicolor-icon-theme')
+optdepends=('libayatana-appindicator: tray icon')
+makedepends=('rust' 'cargo' 'nodejs' 'npm' 'git')
+install=daevalens.install
+options=('!lto' '!debug')
+
+_root() {
+  cd "$startdir/../.." && pwd
+}
+
+prepare() {
+  cd "$(_root)"
+  git submodule update --init upstream 2>/dev/null || true
+  # Upstream's crate expects its web build folder, which DaevaLens does not use.
+  mkdir -p upstream/dist
+}
+
+build() {
+  cd "$(_root)"
+  npm ci
+  npx tauri build --no-bundle
+}
+
+package() {
+  local root
+  root="$(_root)"
+  install -Dm755 "$root/src-tauri/target/release/daevalens" "$pkgdir/usr/bin/daevalens"
+  # Tauri looks for resources in /usr/lib/<product name>.
+  install -d "$pkgdir/usr/lib/DaevaLens"
+  cp -r "$root/upstream/src/data" "$pkgdir/usr/lib/DaevaLens/data"
+  install -Dm644 "$root/src-tauri/icons/icon.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/daevalens.svg"
+  install -Dm644 "$root/src-tauri/icons/128x128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/daevalens.png"
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/daevalens.desktop" <<DESKTOP
+[Desktop Entry]
+Name=DaevaLens
+Comment=Combat overlays for AION 2
+Exec=daevalens --panel
+Icon=daevalens
+Terminal=false
+Type=Application
+Categories=Game;Utility;
+DESKTOP
+  install -Dm644 "$root/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

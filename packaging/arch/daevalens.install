@@ -1,0 +1,8 @@
+# Reading the game's traffic needs CAP_NET_RAW and nothing else. A new binary
+# (every upgrade) needs it again.
+_grant() {
+  setcap cap_net_raw=ep /usr/bin/daevalens \
+    || echo "==> Run: sudo setcap cap_net_raw=ep /usr/bin/daevalens"
+}
+post_install() { _grant; }
+post_upgrade() { _grant; }

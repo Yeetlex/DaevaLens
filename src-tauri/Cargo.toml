@@ -1,0 +1,47 @@
+[package]
+name = "daevalens"
+version = "0.1.0"
+description = "DaevaLens: multi-overlay combat meter for AION 2"
+authors = ["DaevaLens contributors"]
+license = "GPL-3.0-only"
+edition = "2024"
+
+[lib]
+name = "daevalens_lib"
+crate-type = ["rlib"]
+
+[features]
+default = ["custom-protocol"]
+# Serve the bundled UI instead of a dev server (what `tauri build` turns on).
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# The protocol parser, capture and combat storage of A2Tools DPS Meter
+# (https://github.com/taengu/A2Tools-DPS-Meter, GPL-3.0), used unmodified from
+# the `upstream` submodule. "desktop" is live capture; "online" (accounts,
+# uploads, updater) stays off.
+a2t = { package = "a2tools-dps-meter", path = "../upstream/src-tauri", default-features = false, features = ["desktop"] }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+parking_lot = "0.12"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libloading = "0.8"
+
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
+tauri-plugin-global-shortcut = "2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true

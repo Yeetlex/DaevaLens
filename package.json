@@ -1,0 +1,16 @@
+{
+  "name": "daevalens",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Multi-overlay combat meter for AION 2",
+  "license": "GPL-3.0-only",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "preview": "python3 ui/dev/serve.py 8766"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

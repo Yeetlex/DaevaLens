@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>DaevaLens preview</title>
+  <style>
+    body { margin: 0; padding: 20px; font: 12px system-ui; color: #fff;
+      background: linear-gradient(120deg, #d8c6a0 0%, #8fae7a 35%, #2b3a4a 65%, #0d0f16 100%); }
+    .grid { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+    figure { margin: 0; }
+    figcaption { margin-bottom: 4px; text-shadow: 0 1px 2px #000; }
+    iframe { border: 1px dashed rgba(255,255,255,.35); background: transparent; display: block; }
+  </style>
+</head>
+<body>
+  <div class="grid" id="grid"></div>
+  <script>
+    const q = location.search;
+    const sizes = { dps: [320, 210], target: [320, 74], tracker: [260, 150], skills: [340, 260], summary: [340, 180], alerts: [440, 230], info: [240, 34] };
+    const grid = document.getElementById("grid");
+    for (const [w, [width, height]] of Object.entries(sizes)) {
+      grid.insertAdjacentHTML("beforeend", `<figure><figcaption>${w} ${width}×${height}</figcaption><iframe src="../overlay.html?w=${w}&${q.slice(1)}" width="${width}" height="${height}" allowtransparency="true"></iframe></figure>`);
+    }
+    if (!q.includes("nopanel"))
+      grid.insertAdjacentHTML("beforeend", `<figure><figcaption>panel 1150×800</figcaption><iframe src="../panel.html?${q.slice(1)}" width="1150" height="800"></iframe></figure>`);
+  </script>
+</body>
+</html>
