@@ -119,6 +119,14 @@ To work on the UI without the game, `npm run preview` and open <http://localhost
 
 DaevaLens is passive: it reads packets the game already receives, the same way any network tool does. It is not endorsed by NCSOFT, and using third-party tools is at your own risk. Never use anything that automates play.
 
+## Support
+
+If it helps you and you want to buy me a coffee, donations are welcome in ETH (Ethereum mainnet):
+
+```text
+0x334B54cE55d40A87919b4066102279D70865b1ae
+```
+
 ## License
 
 GPL-3.0-only. AION 2 is a trademark of NCSOFT; this project is not affiliated with NCSOFT. Game names and icons are loaded from the game's public data and CDN.

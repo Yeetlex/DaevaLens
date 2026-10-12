@@ -82,6 +82,14 @@ daevalens --reset            reinicia el combate actual
 
 DaevaLens es pasivo: lee paquetes que el juego ya recibe, como cualquier herramienta de red. NCSOFT no lo respalda y usar herramientas de terceros es bajo tu responsabilidad. No uses nunca nada que juegue por ti.
 
+## Apoyar el proyecto
+
+Si te resulta útil y quieres invitarme a un café, se aceptan donaciones en ETH (red principal de Ethereum):
+
+```text
+0x334B54cE55d40A87919b4066102279D70865b1ae
+```
+
 ## Licencia
 
 GPL-3.0. AION 2 es una marca de NCSOFT; este proyecto no tiene relación con NCSOFT.
