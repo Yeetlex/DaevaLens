@@ -1,4 +1,4 @@
-import { invoke, listen, currentWindow, t, setLang, fmt, pct, clock, esc, icon, jobColor, capacity } from "./common.js";
+import { invoke, listen, currentWindow, t, setLang, getLang, fmt, pct, clock, esc, icon, jobColor, capacity } from "./common.js";
 
 const widget = new URLSearchParams(location.search).get("w") || "dps";
 const root = document.getElementById("w");
@@ -164,7 +164,11 @@ function renderEvents() {
   box.innerHTML = upcoming.slice(0, capacity(box, 26, 2)).map((u) => {
     const left = u.startMs - now;
     const soon = !u.open && left < 5 * 60_000;
-    const right = u.open ? `<span class="pill live">${t("openNow")} ${countdown(u.endMs - now)}</span>` : `<span class="num ${soon ? "soon" : "muted"}">${countdown(left)}</span>`;
+    // Over a day away a countdown reads badly ("97:12:40"): show the day and time.
+    const far = left > 24 * 3600_000
+      ? new Date(u.startMs).toLocaleString(getLang(), { weekday: "short", hour: "2-digit", minute: "2-digit" })
+      : countdown(left);
+    const right = u.open ? `<span class="pill live">${t("openNow")} ${countdown(u.endMs - now)}</span>` : `<span class="num ${soon ? "soon" : "muted"}">${far}</span>`;
     return `<div class="evt ${u.open ? "open" : ""}"><span class="en">${esc(u.name)}${u.confirmed ? "" : ' <span class="unc">?</span>'}</span>${right}</div>`;
   }).join("");
 }
