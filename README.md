@@ -74,7 +74,7 @@ Wayland does not let an app keep itself above a fullscreen game, so on Wayland D
 ```lua
 hl.window_rule({
     match = { class = "^([Dd]aeva[Ll]ens)$", title = "^(DaevaLens (dps|target|tracker|skills|summary|alerts|info|events))$" },
-    float = true, no_initial_focus = true, no_focus = true, no_blur = true, no_shadow = true, border_size = 0, rounding = 0,
+    float = true, no_initial_focus = true, no_blur = true, no_shadow = true, border_size = 0, rounding = 0,
 })
 hl.window_rule({ match = { class = "^([Dd]aeva[Ll]ens)$", title = "^(DaevaLens)$" }, float = true, center = true })
 ```
@@ -82,7 +82,7 @@ hl.window_rule({ match = { class = "^([Dd]aeva[Ll]ens)$", title = "^(DaevaLens)$
 **Hyprland** (classic config; rule names vary between versions, see the [wiki](https://wiki.hypr.land/Configuring/Window-Rules/)):
 
 ```ini
-windowrule = float, noinitialfocus, nofocus, noblur, noshadow, noborder, rounding 0, class:^([Dd]aeva[Ll]ens)$, title:^(DaevaLens (dps|target|tracker|skills|summary|alerts|info|events))$
+windowrule = float, noinitialfocus, noblur, noshadow, noborder, rounding 0, class:^([Dd]aeva[Ll]ens)$, title:^(DaevaLens (dps|target|tracker|skills|summary|alerts|info|events))$
 windowrule = float, center, class:^([Dd]aeva[Ll]ens)$, title:^(DaevaLens)$
 ```
 
