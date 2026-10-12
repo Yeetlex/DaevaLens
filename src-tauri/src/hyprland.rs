@@ -59,3 +59,13 @@ pub fn move_overlays_to_game() -> bool {
     }
     true
 }
+
+/// Whether the active workspace is the game's: `None` when the game window is
+/// not found. A fullscreen window covers the floating windows that were
+/// already there, so overlays are shown (mapped again, above it) only while
+/// you look at the game's workspace, and hidden on the others.
+pub fn on_game_workspace() -> Option<bool> {
+    let game = game_workspace()?;
+    let active: serde_json::Value = serde_json::from_str(&hyprctl(&["-j", "activeworkspace"])?).ok()?;
+    Some(active.get("name")?.as_str()? == game)
+}

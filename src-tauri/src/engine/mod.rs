@@ -131,7 +131,10 @@ impl Engine {
                     let focused = !settings.hide_unfocused
                         || a2t::platform::window_detector::is_aion2_foreground()
                         || app.webview_windows().values().any(|w| w.is_focused().unwrap_or(false));
-                    let show = (!settings.only_with_game || game_running) && focused;
+                    let mut show = (!settings.only_with_game || game_running) && focused;
+                    if show && crate::hyprland::running() && let Some(here) = crate::hyprland::on_game_workspace() {
+                        show = here;
+                    }
                     if show != shown {
                         shown = show;
                         crate::overlays::set_all_visible(&app, show);
