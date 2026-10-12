@@ -72,7 +72,15 @@ fn open_widget(app: &AppHandle, widget: &str) {
     let name = widget.to_string();
     window.on_window_event(move |event| match event {
         WindowEvent::Moved(pos) => remember(&app2, &name, Some(*pos), None),
-        WindowEvent::Resized(size) => remember(&app2, &name, None, Some(*size)),
+        WindowEvent::Resized(size) => {
+            if app2.state::<SettingsStore>().get().locked {
+                // Compositors can resize any floating window from its border
+                // (Hyprland's resize_on_border): outside edit mode, undo it.
+                snap_back(&app2, &name, *size);
+            } else {
+                remember(&app2, &name, None, Some(*size));
+            }
+        }
         _ => {}
     });
 }
@@ -90,6 +98,7 @@ fn default_position(window: &tauri::WebviewWindow, settings: &crate::settings::S
     match widget {
         "info" => PhysicalPosition::new(center("info"), px(60)),
         "alerts" => PhysicalPosition::new(center("alerts"), px(150)),
+        "events" => PhysicalPosition::new(mw - px(settings.overlays["events"].width) - px(30), px(120)),
         _ => {
             let column = ["dps", "target", "tracker", "summary", "skills"];
             let mut y = px(120);
@@ -131,6 +140,17 @@ fn remember(app: &AppHandle, widget: &str, pos: Option<PhysicalPosition<i32>>, s
     });
 }
 
+fn snap_back(app: &AppHandle, widget: &str, size: PhysicalSize<u32>) {
+    let Some(w) = app.get_webview_window(&label(widget)) else { return };
+    let cfg = app.state::<SettingsStore>().get().overlays[widget].clone();
+    let scale = w.scale_factor().unwrap_or(1.0);
+    let want = PhysicalSize::new((cfg.width as f64 * scale).round() as u32, (cfg.height as f64 * scale).round() as u32);
+    // A pixel or two of rounding is not a resize.
+    if size.width.abs_diff(want.width) > 2 || size.height.abs_diff(want.height) > 2 {
+        let _ = w.set_size(want);
+    }
+}
+
 /// Locked: clicks go through. Unlocked (edit mode): drag and resize.
 pub fn apply_lock(app: &AppHandle) {
     let settings = app.state::<SettingsStore>().get();
@@ -152,6 +172,15 @@ pub fn set_all_visible(app: &AppHandle, visible: bool) {
             if visible {
                 let _ = w.show();
                 let _ = w.set_ignore_cursor_events(locked);
+                // Once more when the window is surely mapped: an input shape set
+                // too early can be lost on the way through XWayland.
+                let w2 = w.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    if w2.is_visible().unwrap_or(false) {
+                        let _ = w2.set_ignore_cursor_events(locked);
+                    }
+                });
             } else {
                 let _ = w.hide();
             }

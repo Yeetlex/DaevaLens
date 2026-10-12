@@ -30,10 +30,13 @@ Los dos proyectos son **GPL v3**. Si solo quieres un medidor de daño, usa A2Too
 | Resumen | Tarjeta con los números del combate que acaba de terminar |
 | Avisos | Aviso grande (y sonido) cuando cae un debuff que sigues o muere alguien |
 | Estado | Conexión, ping y tiempo de combate |
+| Próximos | Cuenta atrás de los eventos que sigues: grietas, asedios, jefes de mundo |
 
 **Combates con sentido** — un combate empieza con tu primer golpe y termina tras unos segundos sin daño tuyo ni de tu grupo (configurable). Solo cuenta el daño a los enemigos que golpeas tú, así que los desconocidos de alrededor no inflan los números.
 
 **Historial y análisis** — se guarda cada combate: DPS a lo largo del tiempo, daño por habilidad (crítico, espalda, mejor golpe), daño de invocaciones, tiempo activo de buffs y debuffs y todos los jugadores.
+
+**Avisos de eventos** — grietas, asedio de artefactos, jefes tras el asedio, Vigilante Kaira, Señor guardián Nahma, festival Shugo, invasión dimensional y reinicios, con el calendario de los servidores globales (UTC o el reloj del servidor de tu región). Eliges cuáles seguir y te avisa unos minutos antes. Todas las horas se pueden editar —las fuentes de la comunidad no coinciden en algunas— y puedes añadir las tuyas.
 
 **Listas por clase** — el rastreador se rellena solo para tu clase la primera vez que te ve (Spiritmaster: cargas de Unificación elemental, Corrosión, Maldición, Favor de Espíritu y Bendición ardiente). Desde el panel puedes añadir cualquier otro que veas.
 
@@ -71,7 +74,7 @@ Asígnalos a teclas en tu escritorio o usa el menú de la bandeja:
 ```text
 daevalens --panel            abre el panel
 daevalens --edit             activa o desactiva el modo edición
-daevalens --toggle <widget>  muestra u oculta: dps target tracker skills summary alerts info
+daevalens --toggle <widget>  muestra u oculta: dps target tracker skills summary alerts info events
 daevalens --reset            reinicia el combate actual
 ```
 

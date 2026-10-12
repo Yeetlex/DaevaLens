@@ -30,10 +30,13 @@ Both projects are licensed under the **GNU GPL v3**. If you only want a damage m
 | Summary | A card with the numbers of the fight that just ended |
 | Alerts | A big alert (and sound) when a tracked debuff drops or someone dies |
 | Status | Connection, ping and fight time |
+| Upcoming | Countdown to the events you follow: rifts, sieges, world bosses |
 
 **Fights that make sense** — a fight starts with your first hit and ends after a few seconds without damage from you or your group (configurable). Only damage on the enemies you hit counts, so strangers nearby do not inflate the numbers.
 
 **History and analysis** — every fight is saved: DPS over time, damage per skill (crit, back attack, best hit), summon damage, buff/debuff uptime and every player.
+
+**Event alerts** — rifts, Artifact Siege, post-siege bosses, Watcher Kaira, Guardian Lord Nahma, Shugo Festival, Dimensional Invasion and resets, on the global servers' calendar (UTC or your region's server clock). Pick which to follow and get an alert a few minutes before. Every time is editable — community sources disagree on some — and you can add your own.
 
 **Class presets** — the tracker fills itself for your class the first time it sees you (Spiritmaster: Element Unification stacks, Corrode, Curse, Spirit's Benediction, Flame Blessing). Add anything else you see from the panel.
 
@@ -70,8 +73,8 @@ Wayland does not let an app keep itself above a fullscreen game, so on Wayland D
 
 ```lua
 hl.window_rule({
-    match = { class = "^([Dd]aeva[Ll]ens)$", title = "^(DaevaLens (dps|target|tracker|skills|summary|alerts|info))$" },
-    float = true, no_initial_focus = true, no_blur = true, no_shadow = true, border_size = 0, rounding = 0,
+    match = { class = "^([Dd]aeva[Ll]ens)$", title = "^(DaevaLens (dps|target|tracker|skills|summary|alerts|info|events))$" },
+    float = true, no_initial_focus = true, no_focus = true, no_blur = true, no_shadow = true, border_size = 0, rounding = 0,
 })
 hl.window_rule({ match = { class = "^([Dd]aeva[Ll]ens)$", title = "^(DaevaLens)$" }, float = true, center = true })
 ```
@@ -79,7 +82,7 @@ hl.window_rule({ match = { class = "^([Dd]aeva[Ll]ens)$", title = "^(DaevaLens)$
 **Hyprland** (classic config; rule names vary between versions, see the [wiki](https://wiki.hypr.land/Configuring/Window-Rules/)):
 
 ```ini
-windowrule = float, noinitialfocus, noblur, noshadow, noborder, rounding 0, class:^([Dd]aeva[Ll]ens)$, title:^(DaevaLens (dps|target|tracker|skills|summary|alerts|info))$
+windowrule = float, noinitialfocus, nofocus, noblur, noshadow, noborder, rounding 0, class:^([Dd]aeva[Ll]ens)$, title:^(DaevaLens (dps|target|tracker|skills|summary|alerts|info|events))$
 windowrule = float, center, class:^([Dd]aeva[Ll]ens)$, title:^(DaevaLens)$
 ```
 
@@ -94,7 +97,7 @@ Bind these commands to keys in your desktop, or use the tray menu:
 ```text
 daevalens --panel            open the control panel
 daevalens --edit             toggle edit mode (move/resize overlays)
-daevalens --toggle <widget>  show/hide: dps target tracker skills summary alerts info
+daevalens --toggle <widget>  show/hide: dps target tracker skills summary alerts info events
 daevalens --reset            clear the current fight
 ```
 

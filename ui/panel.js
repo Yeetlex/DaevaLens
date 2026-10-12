@@ -2,7 +2,13 @@ import { invoke, listen, setLang, getLang, fmt, pct, clock, esc, icon, jobColor,
 
 const S = {
   es: {
-    navOverlays: "Overlays", navHistory: "Historial", navTracker: "Rastreador", navSettings: "Ajustes", navAbout: "Acerca de", quit: "Salir de DaevaLens", quitAsk: "Pulsa otra vez para salir",
+    navOverlays: "Overlays", navHistory: "Historial", navTracker: "Rastreador", navSettings: "Ajustes", navAbout: "Acerca de", navEvents: "Eventos",
+    evTitle: "Eventos", evLead: "Grietas, asedios y jefes de mundo: un aviso unos minutos antes en el overlay de avisos, y la cuenta atrás en «Próximos».",
+    region: "Región del servidor", regionHint: "Los eventos en hora del servidor van con su reloj.",
+    rEu: "Europa", rNaE: "Norteamérica Este", rNaW: "Norteamérica Oeste", rSa: "Sudamérica", rAsia: "Asia",
+    follow: "Seguir", lead: "Avisar antes", leadMin: "min", times: "Horas", timesHint: "HH:MM separadas por comas", daysL: "Días", everyDay: "todos los días",
+    clockL: "Reloj", clockServer: "servidor", clockUtc: "UTC", durationL: "Abierto", unconfirmed: "Hora sin confirmar: compruébala en el juego y corrígela aquí si hace falta.",
+    restore: "Restaurar", addEvent: "Añadir evento", newEvent: "Evento nuevo", nextIn: "Próximo: {when}", openNowP: "abierto ahora", del2: "Borrar", quit: "Salir de DaevaLens", quitAsk: "Pulsa otra vez para salir",
     ovTitle: "Overlays", ovLead: "Cada overlay es una ventana independiente encima del juego. Actívalos, ajusta su aspecto y colócalos en modo edición.",
     edit: "Modo edición", editOn: "Salir del modo edición", resetPos: "Recolocar todos", opacity: "Opacidad", scale: "Tamaño",
     w_dps: "DPS", w_dps_d: "Tu DPS y el de tu grupo, con barras por jugador.",
@@ -12,6 +18,7 @@ const S = {
     w_summary: "Resumen", w_summary_d: "Tarjeta con los números del último combate.",
     w_alerts: "Avisos", w_alerts_d: "Aviso grande cuando se cae un debuff o muere alguien.",
     w_info: "Estado", w_info_d: "Barrita con conexión, ping y tiempo de combate.",
+    w_events: "Próximos", w_events_d: "Cuenta atrás de los eventos que sigues (grietas, asedios, jefes).",
     hTitle: "Historial", hLead: "Todos tus combates de más de 3 segundos. Pulsa uno para ver el análisis.",
     when: "Cuándo", target: "Objetivo", duration: "Duración", myDps: "Tu DPS", groupDps: "DPS grupo", players: "Jugadores",
     none: "Todavía no hay combates guardados.", back: "← Volver", del: "Borrar",
@@ -34,7 +41,13 @@ const S = {
     aTitle: "Acerca de DaevaLens", capture: "Captura", game: "Juego", dataFiles: "Datos", ok: "correcto", missing: "falta", seenGame: "detectado", notSeen: "esperando",
   },
   en: {
-    navOverlays: "Overlays", navHistory: "History", navTracker: "Tracker", navSettings: "Settings", navAbout: "About", quit: "Quit DaevaLens", quitAsk: "Click again to quit",
+    navOverlays: "Overlays", navHistory: "History", navTracker: "Tracker", navSettings: "Settings", navAbout: "About", navEvents: "Events",
+    evTitle: "Events", evLead: "Rifts, sieges and world bosses: an alert a few minutes before in the alerts overlay, and a countdown in “Upcoming”.",
+    region: "Server region", regionHint: "Events on server time follow its clock.",
+    rEu: "Europe", rNaE: "North America East", rNaW: "North America West", rSa: "South America", rAsia: "Asia",
+    follow: "Follow", lead: "Warn before", leadMin: "min", times: "Times", timesHint: "HH:MM separated by commas", daysL: "Days", everyDay: "every day",
+    clockL: "Clock", clockServer: "server", clockUtc: "UTC", durationL: "Open", unconfirmed: "Unconfirmed time: check it in game and fix it here if needed.",
+    restore: "Restore", addEvent: "Add event", newEvent: "New event", nextIn: "Next: {when}", openNowP: "open now", del2: "Delete", quit: "Quit DaevaLens", quitAsk: "Click again to quit",
     ovTitle: "Overlays", ovLead: "Each overlay is its own window on top of the game. Turn them on, style them, and place them in edit mode.",
     edit: "Edit mode", editOn: "Leave edit mode", resetPos: "Re-stack all", opacity: "Opacity", scale: "Size",
     w_dps: "DPS", w_dps_d: "Your DPS and your group's, with a bar per player.",
@@ -44,6 +57,7 @@ const S = {
     w_summary: "Summary", w_summary_d: "A card with the numbers of the last fight.",
     w_alerts: "Alerts", w_alerts_d: "Big alert when a debuff drops or someone dies.",
     w_info: "Status", w_info_d: "Small bar with connection, ping and fight time.",
+    w_events: "Upcoming", w_events_d: "Countdown to the events you follow (rifts, sieges, bosses).",
     hTitle: "History", hLead: "Every fight longer than 3 seconds. Click one for the analysis.",
     when: "When", target: "Target", duration: "Duration", myDps: "Your DPS", groupDps: "Group DPS", players: "Players",
     none: "No fights saved yet.", back: "← Back", del: "Delete",
@@ -67,7 +81,7 @@ const S = {
   },
 };
 const L = (k) => S[getLang()]?.[k] ?? S.en[k] ?? k;
-const WIDGETS = ["dps", "target", "tracker", "skills", "summary", "alerts", "info"];
+const WIDGETS = ["dps", "target", "tracker", "skills", "summary", "alerts", "info", "events"];
 
 let settings = await invoke("get_settings");
 setLang(settings.language);
@@ -207,6 +221,62 @@ async function pageTracker() {
   main.querySelector("#preset")?.addEventListener("click", async () => { settings = await invoke("load_class_preset"); pageTracker(); });
 }
 
+async function pageEvents() {
+  const DAYS = getLang() === "es" ? ["L", "M", "X", "J", "V", "S", "D"] : ["M", "T", "W", "T", "F", "S", "S"];
+  const up = await invoke("get_upcoming");
+  const when = (id) => {
+    const u = up.find((x) => x.id === id);
+    if (!u) return "";
+    if (u.open) return L("openNowP");
+    const d = new Date(u.startMs);
+    const sameDay = d.toDateString() === new Date().toDateString();
+    return L("nextIn").replace("{when}", d.toLocaleString(getLang(), sameDay ? { hour: "2-digit", minute: "2-digit" } : { weekday: "short", hour: "2-digit", minute: "2-digit" }));
+  };
+  const regions = [["eu", "rEu"], ["na-east", "rNaE"], ["na-west", "rNaW"], ["sa", "rSa"], ["asia", "rAsia"]];
+  main.innerHTML = `<h1>${L("evTitle")}</h1><p class="lead">${L("evLead")}</p>
+    <div class="toolbar" style="align-items:center">
+      <label class="muted">${L("region")}</label>
+      <select id="region">${regions.map(([v, k]) => `<option value="${v}" ${settings.region === v ? "selected" : ""}>${L(k)}</option>`).join("")}</select>
+      <span class="muted" style="font-size:12px">${L("regionHint")}</span>
+      <span style="flex:1"></span><button class="btn" id="addEv">${L("addEvent")}</button>
+    </div>
+    <div class="cards evcards">${settings.events.map((e, i) => `
+      <div class="card ev ${e.enabled ? "" : "off"}">
+        <h3><span class="evname">${e.builtin ? esc(e.name) : `<input type="text" data-k="name" data-i="${i}" value="${esc(e.name)}">`}${e.confirmed ? "" : ` <span class="unc" title="${L("unconfirmed")}">?</span>`}</span>${sw("en-ev-" + i, e.enabled)}</h3>
+        <p class="next">${when(e.id)}</p>
+        <div class="field"><label>${L("times")}<span class="hint">${L("timesHint")}</span></label><input type="text" class="times" data-k="times" data-i="${i}" value="${esc(e.times.join(", "))}"></div>
+        <div class="field"><label>${L("daysL")}</label><span class="days">${DAYS.map((d, j) => `<button class="day ${e.days.includes(j) ? "on" : ""}" data-day="${j}" data-i="${i}">${d}</button>`).join("")}</span></div>
+        <div class="field"><label>${L("clockL")}</label><select data-k="tz" data-i="${i}"><option value="server" ${e.tz === "server" ? "selected" : ""}>${L("clockServer")}</option><option value="utc" ${e.tz === "utc" ? "selected" : ""}>${L("clockUtc")}</option></select></div>
+        <div class="field"><label>${L("lead")}</label><span><input type="number" min="0" max="240" data-k="leadMin" data-i="${i}" value="${e.leadMin}"> ${L("leadMin")}</span></div>
+        <div class="field"><label>${L("durationL")}</label><span><input type="number" min="0" max="600" data-k="durationMin" data-i="${i}" value="${e.durationMin}"> ${L("leadMin")}</span></div>
+        <div class="evfoot">${e.builtin ? `<button class="btn small" data-restore="${i}">${L("restore")}</button>` : `<button class="btn small danger" data-delev="${i}">${L("del2")}</button>`}<span class="muted" style="font-size:11px">${e.days.length ? "" : L("everyDay")}</span></div>
+      </div>`).join("")}</div>`;
+  const redraw = () => pageEvents();
+  main.querySelector("#region").onchange = (el) => save((s) => { s.region = el.target.value; }).then(redraw);
+  main.querySelector("#addEv").onclick = () => save((s) => s.events.push({ id: "custom-" + Date.now(), name: L("newEvent"), enabled: true, leadMin: 5, times: ["20:00"], days: [], tz: "server", durationMin: 10, confirmed: true, builtin: false })).then(redraw);
+  settings.events.forEach((_, i) => {
+    main.querySelector(`#en-ev-${i}`).onchange = (el) => save((s) => { s.events[i].enabled = el.target.checked; }).then(redraw);
+  });
+  main.querySelectorAll("[data-k]").forEach((el) => (el.onchange = () => {
+    const i = +el.dataset.i, k = el.dataset.k;
+    save((s) => {
+      if (k === "times") s.events[i].times = el.value.split(/[,\s]+/).map((x) => x.trim()).filter((x) => /^\d{1,2}:\d{2}$/.test(x)).map((x) => x.padStart(5, "0"));
+      else if (k === "leadMin" || k === "durationMin") s.events[i][k] = Math.max(0, Math.round(+el.value || 0));
+      else s.events[i][k] = el.value;
+    }).then(redraw);
+  }));
+  main.querySelectorAll("[data-day]").forEach((el) => (el.onclick = () => {
+    const i = +el.dataset.i, d = +el.dataset.day;
+    save((s) => { const days = s.events[i].days; const at = days.indexOf(d); if (at >= 0) days.splice(at, 1); else days.push(d); days.sort(); }).then(redraw);
+  }));
+  main.querySelectorAll("[data-restore]").forEach((el) => (el.onclick = async () => {
+    const i = +el.dataset.restore;
+    const orig = await invoke("builtin_event", { id: settings.events[i].id });
+    if (orig) save((s) => { s.events[i] = { ...orig, enabled: s.events[i].enabled }; }).then(redraw);
+  }));
+  main.querySelectorAll("[data-delev]").forEach((el) => (el.onclick = () => save((s) => s.events.splice(+el.dataset.delev, 1)).then(redraw)));
+}
+
 function pageSettings() {
   const num = (id, v, min, max) => `<input type="number" id="${id}" min="${min}" max="${max}" value="${v}">`;
   const row = (label, hint, ctl) => `<div class="field"><label>${label}${hint ? `<span class="hint">${hint}</span>` : ""}</label>${ctl}</div>`;
@@ -268,7 +338,7 @@ function banner() {
 function render() {
   document.querySelectorAll("[data-i]").forEach((el) => (el.textContent = L(el.dataset.i)));
   document.querySelectorAll("nav.side button[data-page]").forEach((b) => b.classList.toggle("active", b.dataset.page === page));
-  Promise.resolve(({ overlays: pageOverlays, history: pageHistory, tracker: pageTracker, settings: pageSettings, about: pageAbout })[page]())
+  Promise.resolve(({ overlays: pageOverlays, history: pageHistory, tracker: pageTracker, events: pageEvents, settings: pageSettings, about: pageAbout })[page]())
     .then(() => {
       main.insertAdjacentHTML("afterbegin", banner());
       main.querySelector("#npcap")?.addEventListener("click", () => invoke("open_url", { url: "https://npcap.com/#download" }));

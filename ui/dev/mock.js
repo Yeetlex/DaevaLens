@@ -13,7 +13,14 @@
   const settings = {
     language: new URLSearchParams(location.search).get("lang") || "es", idleResetS: 8, keepResultS: 15, locked: !location.search.includes("edit"),
     hideUnfocused: false, onlyWithGame: true, launchAtLogin: false, alerts: true, alertSound: false, onlyMyTargets: true, historyLimit: 300, activeClass: "Elementalist", watchesByClass: {},
-    overlays: Object.fromEntries(["dps", "target", "tracker", "skills", "summary", "alerts", "info"].map((w) => [w, { enabled: true, x: null, y: null, width: 300, height: 200, opacity: 70, scale: 100 }])),
+    overlays: Object.fromEntries(["dps", "target", "tracker", "skills", "summary", "alerts", "info", "events"].map((w) => [w, { enabled: true, x: null, y: null, width: 300, height: 200, opacity: 70, scale: 100 }])),
+    region: "eu",
+    events: [
+      { id: "rift", name: "Grieta espaciotemporal", enabled: true, leadMin: 5, times: ["00:00","03:00","06:00","09:00","12:00","15:00","18:00","21:00"], days: [], tz: "utc", durationMin: 10, confirmed: true, builtin: true },
+      { id: "kaira", name: "Vigilante Kaira", enabled: true, leadMin: 5, times: ["02:00","05:00"], days: [], tz: "utc", durationMin: 30, confirmed: false, builtin: true },
+      { id: "siege", name: "Asedio de artefactos", enabled: true, leadMin: 5, times: ["21:00"], days: [0,3,5], tz: "server", durationMin: 30, confirmed: true, builtin: true },
+      { id: "shugo", name: "Festival Shugo", enabled: false, leadMin: 2, times: ["00:00"], days: [], tz: "server", durationMin: 10, confirmed: true, builtin: true },
+    ],
     watches: [
       { name: "Unificación elemental", on: "self", alert: false, stacks: true },
       { name: "Corrosión", on: "target", alert: true, stacks: false },
@@ -51,6 +58,13 @@
     list_history: () => Array.from({ length: 14 }, (_, i) => ({ id: 1760000000000 - i * 99999, startMs: Date.now() - i * 3.6e6, durationS: 30 + i * 17, target: i % 3 ? "Araña de cueva" : "Guardián Ancestral del Abismo Profundo de Krao (Pesadilla)", isBoss: !(i % 3), myDps: 3.2e7 / (i + 1), totalDps: 9e8, players: 6, kills: 3 })),
     get_fight: () => ({ ...fight(true), timeline, watches: live().tracker }),
     seen_abnormals: () => [{ name: "Escudo de tierra", on: "self", icon: null }, { name: "Ralentización", on: "target", icon: null }],
+    get_upcoming: () => [
+      { id: "rift", name: "Grieta espaciotemporal", startMs: Date.now() - 120000, endMs: Date.now() + 480000, open: true, confirmed: true },
+      { id: "kaira", name: "Vigilante Kaira", startMs: Date.now() + 240000, endMs: Date.now() + 2040000, open: false, confirmed: false },
+      { id: "siege", name: "Asedio de artefactos del Abismo Superior", startMs: Date.now() + 3 * 3600000, endMs: Date.now() + 3.5 * 3600000, open: false, confirmed: true },
+      { id: "nahma", name: "Señor guardián Nahma", startMs: Date.now() + 26 * 3600000, endMs: Date.now() + 27 * 3600000, open: false, confirmed: false },
+    ],
+    builtin_event: () => null,
     status: () => ({ version: "0.1.0", captureOk: !location.search.includes("nocap"), dataFound: true, gameSeen: true, device: "enp16s0", platform: location.search.includes("win") ? "windows" : "linux" }),
   };
   const win = { startDragging() {}, startResizeDragging() {} };
@@ -63,5 +77,7 @@
   setInterval(() => {
     emit("fight-ended", fight(true));
     ["Corrosión", "Maldición", "Favor de Espíritu del Gran Espíritu Ancestral"].forEach((n, i) => setTimeout(() => emit("alert", { kind: i === 2 ? "death" : "dropped", text: n, icon: `${ICON}/ICON_EL_SKILL_015.png` }), i * 300));
+    setTimeout(() => emit("alert", { kind: "event", text: "Grieta espaciotemporal", minutes: 5, icon: null }), 900);
+    emit("events", responses.get_upcoming());
   }, 4000);
 })();

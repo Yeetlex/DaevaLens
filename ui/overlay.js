@@ -150,6 +150,25 @@ function renderSummary(animate = false) {
   root.classList.toggle("faded", live?.phase === "fight");
 }
 
+let upcoming = [];
+function countdown(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
+}
+function renderEvents() {
+  if (!upcoming.length) { root.innerHTML = header(t("upcoming")) + `<div class="empty">${t("noEvents")}</div>`; return; }
+  const now = Date.now();
+  root.innerHTML = header(t("upcoming")) + `<div class="list"></div>`;
+  const box = root.querySelector(".list");
+  box.innerHTML = upcoming.slice(0, capacity(box, 26, 2)).map((u) => {
+    const left = u.startMs - now;
+    const soon = !u.open && left < 5 * 60_000;
+    const right = u.open ? `<span class="pill live">${t("openNow")} ${countdown(u.endMs - now)}</span>` : `<span class="num ${soon ? "soon" : "muted"}">${countdown(left)}</span>`;
+    return `<div class="evt ${u.open ? "open" : ""}"><span class="en">${esc(u.name)}${u.confirmed ? "" : ' <span class="unc">?</span>'}</span>${right}</div>`;
+  }).join("");
+}
+
 function renderInfo() {
   const f = live?.fight;
   root.innerHTML = `<span class="dot ${live?.gameSeen ? "ok" : ""}"></span>
@@ -164,7 +183,7 @@ function beep(kind) {
   if (!settings?.alertSound) return;
   try {
     audio ??= new AudioContext();
-    const tones = kind === "death" ? [440, 330] : [880, 660];
+    const tones = kind === "death" ? [440, 330] : kind === "event" ? [660, 880, 990] : [880, 660];
     tones.forEach((freq, i) => {
       const o = audio.createOscillator(), g = audio.createGain();
       o.frequency.value = freq; o.type = "sine";
@@ -186,7 +205,10 @@ function showAlert(a) {
   if (widget !== "alerts") return;
   const el = document.createElement("div");
   el.className = `alert ${a.kind}`;
-  el.innerHTML = `${a.icon ? icon(a.icon) : ""}<span>${esc(t(a.kind === "death" ? "died" : "dropped", { name: a.text }))}</span>`;
+  const text = a.kind === "event"
+    ? (a.minutes > 0 ? t("eventSoon", { name: a.text, n: a.minutes }) : t("eventNow", { name: a.text }))
+    : t(a.kind === "death" ? "died" : "dropped", { name: a.text });
+  el.innerHTML = `${a.icon ? icon(a.icon) : a.kind === "event" ? '<span class="aicon">⏰</span>' : ""}<span>${esc(text)}</span>`;
   root.appendChild(el);
   while (root.children.length > 3) root.firstChild.remove();
   setTimeout(() => el.remove(), 3100);
@@ -202,6 +224,7 @@ function render() {
     case "skills": return renderSkills();
     case "summary": return renderSummary();
     case "info": return renderInfo();
+    case "events": return renderEvents();
     case "alerts": return; // event driven
   }
 }
@@ -230,3 +253,8 @@ listen("live", (state) => {
 });
 listen("fight-ended", (f) => { lastFight = f; if (widget === "summary") renderSummary(true); });
 listen("alert", showAlert);
+if (widget === "events") {
+  upcoming = await invoke("get_upcoming");
+  renderEvents();
+  listen("events", (list) => { upcoming = list; renderEvents(); });
+}

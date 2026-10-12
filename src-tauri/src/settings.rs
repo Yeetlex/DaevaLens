@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 /// Every overlay widget the app can show.
-pub const WIDGETS: &[&str] = &["dps", "target", "tracker", "skills", "summary", "alerts", "info"];
+pub const WIDGETS: &[&str] = &["dps", "target", "tracker", "skills", "summary", "alerts", "info", "events"];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -71,6 +71,9 @@ pub struct Settings {
     /// Every other class's list, kept while you play another.
     pub watches_by_class: BTreeMap<String, Vec<Watch>>,
     pub history_limit: usize,
+    /// Server region, for the events that run on the server's clock.
+    pub region: String,
+    pub events: Vec<crate::events::EventSetting>,
 }
 
 impl Default for Settings {
@@ -84,6 +87,7 @@ impl Default for Settings {
             ("summary", true, 340, 160),
             ("alerts", true, 440, 230),
             ("info", false, 240, 34),
+            ("events", true, 270, 180),
         ] {
             overlays.insert(name.to_string(), OverlayConfig { enabled, width: w, height: h, ..Default::default() });
         }
@@ -103,6 +107,8 @@ impl Default for Settings {
             active_class: None,
             watches_by_class: BTreeMap::new(),
             history_limit: 300,
+            region: "eu".into(),
+            events: crate::events::builtin_events("es"),
         }
     }
 }
@@ -146,6 +152,12 @@ impl SettingsStore {
         for name in WIDGETS {
             if !settings.overlays.contains_key(*name) {
                 settings.overlays.insert(name.to_string(), defaults.overlays[*name].clone());
+            }
+        }
+        // Built-in events added in later versions.
+        for e in crate::events::builtin_events(&settings.language) {
+            if !settings.events.iter().any(|x| x.id == e.id) {
+                settings.events.push(e);
             }
         }
         // The first build sized the tracker for four entries, not five.

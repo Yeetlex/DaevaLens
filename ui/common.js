@@ -18,6 +18,7 @@ const STRINGS = {
     editHint: "Arrastra para mover · esquina para redimensionar",
     trackerEmpty: "Añade buffs o debuffs desde el panel",
     onSelf: "en ti", onTarget: "en el objetivo",
+    upcoming: "Próximos", openNow: "abierto", eventSoon: "{name} en {n} min", eventNow: "¡{name}, ya!", noEvents: "Elige eventos en el panel",
   },
   en: {
     idle: "Out of combat", fight: "In combat", result: "Last fight",
@@ -31,6 +32,7 @@ const STRINGS = {
     editHint: "Drag to move · corner to resize",
     trackerEmpty: "Add buffs or debuffs from the panel",
     onSelf: "on you", onTarget: "on target",
+    upcoming: "Upcoming", openNow: "open", eventSoon: "{name} in {n} min", eventNow: "{name}, now!", noEvents: "Pick events in the panel",
   },
 };
 

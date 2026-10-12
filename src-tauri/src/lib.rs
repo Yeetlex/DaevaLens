@@ -2,6 +2,7 @@
 //! parser (https://github.com/taengu/A2Tools-DPS-Meter, GPL-3.0).
 
 mod engine;
+mod events;
 mod history;
 mod hyprland;
 mod overlays;
@@ -24,7 +25,7 @@ const USAGE: &str = "\
 Usage: daevalens [command]
   --panel            open the control panel
   --edit             toggle edit mode (move/resize overlays)
-  --toggle <widget>  show/hide an overlay: dps target tracker skills summary alerts info
+  --toggle <widget>  show/hide an overlay: dps target tracker skills summary alerts info events
   --reset            clear the current fight
   --background       start without opening the panel (used at login)
   --quit             close DaevaLens";
@@ -115,6 +116,18 @@ fn load_class_preset(app: AppHandle, store: State<SettingsStore>, engine: State<
     });
     let _ = app.emit("settings-changed", &saved);
     saved
+}
+
+#[tauri::command]
+fn get_upcoming(store: State<SettingsStore>) -> Vec<events::Upcoming> {
+    let s = store.get();
+    events::upcoming(&s.events, &s.region, a2t::clock::now_ms())
+}
+
+/// The built-in definition of an event, to undo edits.
+#[tauri::command]
+fn builtin_event(store: State<SettingsStore>, id: String) -> Option<events::EventSetting> {
+    events::builtin_events(&store.get().language).into_iter().find(|e| e.id == id)
 }
 
 #[tauri::command]
@@ -320,7 +333,9 @@ pub fn run() {
             status,
             open_url,
             quit,
-            load_class_preset
+            load_class_preset,
+            get_upcoming,
+            builtin_event
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

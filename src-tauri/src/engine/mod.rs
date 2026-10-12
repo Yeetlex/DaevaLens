@@ -84,6 +84,7 @@ impl Engine {
             let mut game_running = false;
             let mut shown = true;
             let mut hypr_tries = 0u32;
+            let mut event_alerts = crate::events::EventAlerts::default();
             loop {
                 interval.tick().await;
                 ticks += 1;
@@ -124,6 +125,17 @@ impl Engine {
                 }
                 for alert in alerts {
                     let _ = app.emit("alert", &alert);
+                }
+                // Scheduled events: once a second is plenty.
+                if ticks % 10 == 0 {
+                    let list = crate::events::upcoming(&settings.events, &settings.region, now);
+                    for a in event_alerts.check(&settings.events, &list, now) {
+                        let _ = app.emit(
+                            "alert",
+                            serde_json::json!({ "kind": "event", "text": a.name, "minutes": a.minutes, "icon": null }),
+                        );
+                    }
+                    let _ = app.emit("events", &list);
                 }
                 let _ = app.emit("live", &live);
                 *self.last.lock() = live;
