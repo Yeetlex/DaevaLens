@@ -50,6 +50,13 @@ fn handle_args(app: &AppHandle, args: &[String]) {
     }
 }
 
+/// Raw game traffic into `<data dir>/packets`, for research.
+fn apply_recording(app: &AppHandle, enabled: bool) {
+    let dir = app.path().app_data_dir().unwrap_or_else(|_| ".".into()).join("packets");
+    let _ = std::fs::create_dir_all(&dir);
+    a2t::logging::logger::set_packet_log_enabled(enabled, &dir);
+}
+
 #[tauri::command]
 fn get_settings(store: State<SettingsStore>) -> Settings {
     store.get()
@@ -59,6 +66,9 @@ fn get_settings(store: State<SettingsStore>) -> Settings {
 fn save_settings(app: AppHandle, store: State<SettingsStore>, settings: Settings) -> Settings {
     let language_changed = store.get().language != settings.language;
     let autostart_changed = store.get().launch_at_login != settings.launch_at_login;
+    if store.get().record_packets != settings.record_packets {
+        apply_recording(&app, settings.record_packets);
+    }
     let saved = store.update(|s| *s = settings);
     if autostart_changed {
         use tauri_plugin_autostart::ManagerExt;
@@ -344,6 +354,9 @@ pub fn run() {
             let store = SettingsStore::load(config_dir);
             let first_run = !store.get().overlays.values().any(|o| o.x.is_some());
             app.manage(History::new(data_dir));
+            if store.get().record_packets {
+                apply_recording(&handle, true);
+            }
             let engine = Engine::start(&handle, &store);
             app.manage(store);
             app.manage(engine);

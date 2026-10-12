@@ -34,6 +34,7 @@ const S = {
     sTitle: "Ajustes", language: "Idioma", restart: "Se aplica al reiniciar DaevaLens.",
     idle: "Fin del combate tras", idleHint: "Segundos sin daño tuyo ni de tu grupo.", keep: "Mantener el resultado", keepHint: "Segundos que el último combate sigue en pantalla.",
     onlyMine: "Solo mis objetivos", onlyMineHint: "Cuenta el daño de los demás solo en los enemigos que golpeas tú.",
+    record: "Grabar tráfico para investigar", recordHint: "Para descifrar los avisos de habilidades de jefes. Ocupa hasta 160 MB; apágalo cuando no haga falta.",
     hide: "Ocultar sin el juego delante", alerts: "Avisos",
     withGame: "Overlays solo con el juego abierto", withGameHint: "Aparecen al abrir AION 2 y se esconden al cerrarlo.",
     login: "Abrir al iniciar sesión", loginHint: "Se queda en segundo plano hasta que abras el juego.",
@@ -74,6 +75,7 @@ const S = {
     sTitle: "Settings", language: "Language", restart: "Applies after restarting DaevaLens.",
     idle: "End the fight after", idleHint: "Seconds without damage from you or your group.", keep: "Keep the result", keepHint: "Seconds the last fight stays on screen.",
     onlyMine: "Only my targets", onlyMineHint: "Count others' damage only on enemies you hit yourself.",
+    record: "Record traffic for research", recordHint: "To decode boss skill alerts. Up to 160 MB; turn it off when not needed.",
     hide: "Hide when the game is not in front", alerts: "Alerts",
     withGame: "Overlays only while the game runs", withGameHint: "They appear when AION 2 starts and hide when it closes.",
     login: "Start when I log in", loginHint: "Stays in the background until you open the game.",
@@ -297,6 +299,7 @@ function pageSettings() {
       ${row(L("alerts"), "", sw("alerts", settings.alerts))}
       ${row(L("sound"), "", sw("sound", settings.alertSound))}
       ${row(L("limit"), "", num("limit", settings.historyLimit, 10, 5000))}
+      ${row(L("record"), L("recordHint"), sw("record", settings.recordPackets))}
     </div></div>`;
   const on = (id, f) => (main.querySelector("#" + id).onchange = (e) => save((s) => f(s, e.target)));
   on("lang", (s, el) => { s.language = el.value; });
@@ -308,6 +311,7 @@ function pageSettings() {
   on("login", (s, el) => { s.launchAtLogin = el.checked; });
   on("alerts", (s, el) => { s.alerts = el.checked; });
   on("sound", (s, el) => { s.alertSound = el.checked; });
+  on("record", (s, el) => { s.recordPackets = el.checked; });
   on("limit", (s, el) => { s.historyLimit = Math.max(10, +el.value || 300); });
 }
 

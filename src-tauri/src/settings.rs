@@ -73,6 +73,9 @@ pub struct Settings {
     /// Classes whose list was learned from a first fight (once each).
     pub learned_classes: Vec<String>,
     pub history_limit: usize,
+    /// Save the raw game traffic (to research boss cast packets). Upstream
+    /// keeps the newest 5 files of 32 MB.
+    pub record_packets: bool,
     /// Server region, for the events that run on the server's clock.
     pub region: String,
     pub events: Vec<crate::events::EventSetting>,
@@ -110,6 +113,7 @@ impl Default for Settings {
             watches_by_class: BTreeMap::new(),
             learned_classes: Vec::new(),
             history_limit: 300,
+            record_packets: false,
             region: "eu".into(),
             events: crate::events::builtin_events("es"),
         }
